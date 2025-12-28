@@ -1,15 +1,60 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useApp } from '../context/AppContext';
-import { Minus, Plus, Trash2, CreditCard, ShoppingBag } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Minus, Plus, Trash2, CreditCard, ShoppingBag, CheckCircle, Home } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { api } from '../utils/api';
 
 const Cart: React.FC = () => {
-  const { cart, addToCart, removeFromCart } = useApp();
+  const { cart, addToCart, removeFromCart, setCart, user } = useApp();
+  const [showSuccess, setShowSuccess] = useState(false);
+  const [checkingOut, setCheckingOut] = useState(false);
+  const navigate = useNavigate();
 
   const total = cart.reduce((acc, item) => acc + (item.price * item.quantity), 0);
 
-  if (cart.length === 0) {
+  const handleCheckout = async () => {
+    if (cart.length === 0) return;
+    
+    try {
+      setCheckingOut(true);
+      
+      // Get restaurant ID from first item
+      const restaurantId = cart[0].restaurantId;
+      if (!restaurantId) {
+        alert('Unable to determine restaurant. Please try again.');
+        setCheckingOut(false);
+        return;
+      }
+
+      // Prepare order data
+      const orderData = {
+        restaurantId,
+        items: cart.map(item => ({
+          itemId: item._id || item.id,
+          name: item.name,
+          price: item.price,
+          quantity: item.quantity
+        })),
+        totalAmount: total,
+        deliveryAddress: (user as any)?.address || 'Not specified'
+      };
+
+      // Create order in database
+      await api.createOrder(orderData);
+
+      // Clear cart after successful order creation
+      setCart([]);
+      
+      // Show success animation
+      setShowSuccess(true);
+    } catch (error: any) {
+      alert(error.message || 'Failed to place order. Please try again.');
+      setCheckingOut(false);
+    }
+  };
+
+  if (cart.length === 0 && !showSuccess) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-8">
         <div className="w-24 h-24 bg-gray-100 rounded-full flex items-center justify-center mb-6">
@@ -89,11 +134,92 @@ const Cart: React.FC = () => {
           <span className="text-2xl font-bold text-brand-red">${total.toFixed(2)}</span>
         </div>
 
-        <button className="w-full bg-gradient-to-r from-brand-orange to-brand-red text-white py-4 rounded-xl font-bold text-lg shadow-lg shadow-brand-red/30 flex items-center justify-center gap-3 hover:opacity-90 transition-opacity">
-          <span>Checkout</span>
+        <button 
+          onClick={handleCheckout}
+          disabled={checkingOut || cart.length === 0}
+          className="w-full bg-gradient-to-r from-brand-orange to-brand-red text-white py-4 rounded-xl font-bold text-lg shadow-lg shadow-brand-red/30 flex items-center justify-center gap-3 hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <span>{checkingOut ? 'Placing Order...' : 'Checkout'}</span>
           <CreditCard size={20} />
         </button>
       </div>
+
+      {/* Success Modal */}
+      <AnimatePresence>
+        {showSuccess && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.8, opacity: 0 }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 text-center"
+            >
+              {/* Success Icon Animation */}
+              <motion.div
+                initial={{ scale: 0 }}
+                animate={{ scale: 1 }}
+                transition={{ delay: 0.2, type: "spring", stiffness: 120, damping: 10, duration: 0.8 }}
+                className="w-28 h-28 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6"
+              >
+                <motion.div
+                  initial={{ scale: 0, rotate: -180, opacity: 0 }}
+                  animate={{ 
+                    scale: [0, 1.2, 1],
+                    rotate: [180, 0],
+                    opacity: 1
+                  }}
+                  transition={{ 
+                    delay: 0.6,
+                    scale: { duration: 0.6, times: [0, 0.8, 1] },
+                    rotate: { duration: 0.8 },
+                    opacity: { duration: 0.4 }
+                  }}
+                >
+                  <CheckCircle className="w-16 h-16 text-green-500" fill="currentColor" />
+                </motion.div>
+              </motion.div>
+
+              <motion.h2
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 1.3, duration: 0.6 }}
+                className="text-3xl font-bold text-gray-900 mb-3"
+              >
+                Order Placed!
+              </motion.h2>
+
+              <motion.p
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 1.5, duration: 0.6 }}
+                className="text-gray-600 mb-8"
+              >
+                Your order has been successfully placed. We'll notify you when it's ready!
+              </motion.p>
+
+              <motion.button
+                initial={{ y: 20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 1.8, duration: 0.6 }}
+                onClick={() => {
+                  setShowSuccess(false);
+                  navigate('/feed');
+                }}
+                className="w-full bg-gradient-to-r from-brand-orange to-brand-red text-white py-4 rounded-xl font-bold text-lg shadow-lg shadow-brand-red/30 flex items-center justify-center gap-3 hover:opacity-90 transition-opacity"
+              >
+                <Home size={20} />
+                <span>Back to Home</span>
+              </motion.button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };

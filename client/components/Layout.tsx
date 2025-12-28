@@ -24,9 +24,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   }, [location.pathname]);
 
   const navItems = [
-    { icon: <Flame size={24} />, label: 'Swipe', path: '/', roles: ['user', 'admin'] },
+    { icon: <Flame size={24} />, label: 'Swipe', path: '/', roles: ['user'] },
     { icon: <Home size={24} />, label: 'Feed', path: '/feed', roles: ['user', 'admin'] },
-    { icon: <Heart size={24} />, label: 'Favs', path: '/favorites', roles: ['user', 'admin'] },
+    { icon: <Heart size={24} />, label: 'Favs', path: '/favorites', roles: ['user'] },
     { icon: <ChefHat size={24} />, label: 'Dashboard', path: '/owner', roles: ['owner'] },
     { icon: <ChefHat size={24} />, label: 'Admin', path: '/admin', roles: ['admin'] },
   ].filter(item => !item.roles || (user && item.roles.includes(user.role || 'user')));
@@ -37,10 +37,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
     <div className="min-h-screen flex flex-col font-sans text-brand-dark overflow-hidden relative">
       {/* Desktop Header */}
       <header className="hidden md:flex justify-between items-center px-8 py-4 bg-white/80 backdrop-blur-md fixed top-0 w-full z-50 border-b border-gray-100 shadow-sm">
-        <div className="flex items-center gap-2">
+        <Link to={user?.role === 'admin' ? '/admin' : '/feed'} className="flex items-center gap-2 cursor-pointer">
            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-orange to-brand-red flex items-center justify-center text-white font-bold">FS</div>
            <span className="text-2xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-brand-orange to-brand-red">FoodSwipe</span>
-        </div>
+        </Link>
         
         <nav className="flex items-center gap-6">
           {navItems.map((item) => (
@@ -73,7 +73,7 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       {/* Mobile Header */}
       <header className="md:hidden flex justify-between items-center px-4 py-3 bg-white/95 backdrop-blur-md fixed top-0 w-full z-50 border-b border-gray-100 shadow-sm">
-        <Link to="/feed" className="flex items-center gap-2">
+        <Link to={user?.role === 'admin' ? '/admin' : '/feed'} className="flex items-center gap-2">
           <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-brand-orange to-brand-red flex items-center justify-center text-white font-bold text-xs">FS</div>
           <span className="text-lg font-bold bg-clip-text text-transparent bg-gradient-to-r from-brand-orange to-brand-red">FoodSwipe</span>
         </Link>
@@ -120,10 +120,10 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <footer className="hidden md:block bg-white border-t border-gray-200 py-6 mt-auto">
         <div className="max-w-7xl mx-auto px-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="flex items-center gap-2">
+            <Link to={user?.role === 'admin' ? '/admin' : '/feed'} className="flex items-center gap-2 cursor-pointer">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-brand-orange to-brand-red flex items-center justify-center text-white font-bold">FS</div>
               <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-brand-orange to-brand-red">FoodSwipe</span>
-            </div>
+            </Link>
             <div className="flex items-center gap-6 text-sm text-gray-600">
               <Link to="/feed" className="hover:text-brand-red transition-colors">Restaurants</Link>
               <Link to="/favorites" className="hover:text-brand-red transition-colors">Favorites</Link>

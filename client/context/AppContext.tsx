@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import { FoodItem, CartItem, User, Restaurant } from '../types';
 import { api } from '../utils/api';
 import { transformItem } from '../utils/transformers';
+import { getRestaurantImage, resetRestaurantImages } from '../utils/imageMapper';
 
 interface AppContextType {
   user: User | null;
@@ -19,6 +20,7 @@ interface AppContextType {
   cart: CartItem[];
   addToCart: (item: FoodItem) => void;
   removeFromCart: (itemId: string) => void;
+  setCart: (cart: CartItem[]) => void;
   favorites: FoodItem[];
   toggleFavorite: (item: FoodItem) => void;
   removeAllFavorites: () => void;
@@ -28,6 +30,9 @@ interface AppContextType {
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
+
+const CART_STORAGE_KEY = 'foodswipe_cart';
+const FAVORITES_STORAGE_KEY = 'foodswipe_favorites';
 
 export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
@@ -40,23 +45,86 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   const [foodsLoading, setFoodsLoading] = useState(true);
   const [authLoading, setAuthLoading] = useState(true);
 
+  // Save cart to localStorage whenever it changes
+  useEffect(() => {
+    if (user) {
+      try {
+        localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(cart));
+      } catch (error) {
+        console.error('Error saving cart to localStorage:', error);
+      }
+    }
+  }, [cart, user]);
+
+  // Save favorites to localStorage whenever they change
+  useEffect(() => {
+    if (user) {
+      try {
+        localStorage.setItem(FAVORITES_STORAGE_KEY, JSON.stringify(favorites));
+      } catch (error) {
+        console.error('Error saving favorites to localStorage:', error);
+      }
+    }
+  }, [favorites, user]);
+
   const loadData = useCallback(async () => {
     try {
       setRestaurantsLoading(true);
       setFoodsLoading(true);
+      
+      // Reset used images for fresh uniqueness check
+      resetRestaurantImages();
       
       const [restaurantsData, itemsData] = await Promise.all([
         api.getRestaurants(),
         api.getItems()
       ]);
 
-      const restaurantMap = new Map(restaurantsData.map((r: any) => [r._id, r.name]));
+      // Ensure unique restaurant cover images - NO COMPROMISE, ALL MUST BE UNIQUE
+      const usedImages = new Set<string>();
+      const restaurantsWithUniqueImages = restaurantsData.map((restaurant: any, index: number) => {
+        let image = restaurant.image || '';
+        
+        // Always check if the existing image is already used
+        if (!image || usedImages.has(image)) {
+          // Get a unique image based on cuisine, excluding all already used images
+          image = getRestaurantImage(restaurant.cuisine || 'restaurant', Array.from(usedImages));
+          
+          // Double-check: if still duplicate (shouldn't happen but just in case), force uniqueness
+          if (usedImages.has(image)) {
+            const baseUrl = image.split('&t=')[0].split('&unique=')[0].split('&')[0];
+            image = `${baseUrl}&unique=${Date.now()}-${restaurant._id || restaurant.id || index}-${Math.random().toString(36).substr(2, 9)}`;
+          }
+        }
+        
+        // Mark this image as used
+        usedImages.add(image);
+        return { ...restaurant, image };
+      });
+      
+      // Final verification: check for any remaining duplicates and fix them
+      const finalImageMap = new Map<string, number>();
+      const finalRestaurants = restaurantsWithUniqueImages.map((restaurant: any, index: number) => {
+        const currentImage = restaurant.image;
+        const count = finalImageMap.get(currentImage) || 0;
+        finalImageMap.set(currentImage, count + 1);
+        
+        // If this is a duplicate (count > 0 means we've seen it before)
+        if (count > 0) {
+          const baseUrl = currentImage.split('&t=')[0].split('&unique=')[0].split('&')[0];
+          const uniqueImage = `${baseUrl}&unique=${Date.now()}-${restaurant._id || restaurant.id || index}-forced-${Math.random().toString(36).substr(2, 9)}`;
+          return { ...restaurant, image: uniqueImage };
+        }
+        return restaurant;
+      });
+
+      const restaurantMap = new Map(finalRestaurants.map((r: any) => [r._id, r.name]));
       
       const transformedItems = itemsData.map((item: any) => 
         transformItem(item, restaurantMap.get(item.restaurantId?._id || item.restaurantId))
       );
 
-      setRestaurants(restaurantsData);
+      setRestaurants(finalRestaurants);
       setFoods(transformedItems);
 
       // Load swipe items
@@ -96,12 +164,39 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
             phone: userData.phone,
             address: userData.address
           });
+          
+          // Load cart and favorites from localStorage
+          try {
+            const savedCart = localStorage.getItem(CART_STORAGE_KEY);
+            const savedFavorites = localStorage.getItem(FAVORITES_STORAGE_KEY);
+            
+            if (savedCart) {
+              const parsedCart = JSON.parse(savedCart);
+              setCart(parsedCart);
+            }
+            
+            if (savedFavorites) {
+              const parsedFavorites = JSON.parse(savedFavorites);
+              setFavorites(parsedFavorites);
+            }
+          } catch (error) {
+            console.error('Error loading cart/favorites from localStorage:', error);
+          }
+          
           await loadData();
         } catch (error) {
           console.error('Failed to restore session:', error);
           localStorage.removeItem('token');
+          localStorage.removeItem(CART_STORAGE_KEY);
+          localStorage.removeItem(FAVORITES_STORAGE_KEY);
           setUser(null);
+          setCart([]);
+          setFavorites([]);
         }
+      } else {
+        // No token, clear cart and favorites
+        setCart([]);
+        setFavorites([]);
       }
       setAuthLoading(false);
     };
@@ -126,6 +221,25 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       phone: response.user.phone,
       address: response.user.address
     });
+    
+    // Load cart and favorites from localStorage after login
+    try {
+      const savedCart = localStorage.getItem(CART_STORAGE_KEY);
+      const savedFavorites = localStorage.getItem(FAVORITES_STORAGE_KEY);
+      
+      if (savedCart) {
+        const parsedCart = JSON.parse(savedCart);
+        setCart(parsedCart);
+      }
+      
+      if (savedFavorites) {
+        const parsedFavorites = JSON.parse(savedFavorites);
+        setFavorites(parsedFavorites);
+      }
+    } catch (error) {
+      console.error('Error loading cart/favorites from localStorage:', error);
+    }
+    
     await loadData();
   };
 
@@ -140,11 +254,32 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
       role: response.user.role,
       restaurantId: response.user.restaurantId
     });
+    
+    // Load cart and favorites from localStorage after registration (usually empty for new users)
+    try {
+      const savedCart = localStorage.getItem(CART_STORAGE_KEY);
+      const savedFavorites = localStorage.getItem(FAVORITES_STORAGE_KEY);
+      
+      if (savedCart) {
+        const parsedCart = JSON.parse(savedCart);
+        setCart(parsedCart);
+      }
+      
+      if (savedFavorites) {
+        const parsedFavorites = JSON.parse(savedFavorites);
+        setFavorites(parsedFavorites);
+      }
+    } catch (error) {
+      console.error('Error loading cart/favorites from localStorage:', error);
+    }
+    
     await loadData();
   };
 
   const logout = () => {
     localStorage.removeItem('token');
+    localStorage.removeItem(CART_STORAGE_KEY);
+    localStorage.removeItem(FAVORITES_STORAGE_KEY);
     setUser(null);
     setCart([]);
     setFavorites([]);
@@ -258,7 +393,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
   return (
     <AppContext.Provider value={{
       user, restaurants, login, register, logout, foods, restaurantsLoading, foodsLoading, authLoading,
-      addFood, updateFood, deleteFood, cart, addToCart, removeFromCart,
+      addFood, updateFood, deleteFood, cart, addToCart, removeFromCart, setCart,
       favorites, toggleFavorite, removeAllFavorites, swipeStack, handleSwipe, refreshData
     }}>
       {children}

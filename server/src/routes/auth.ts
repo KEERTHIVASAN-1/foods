@@ -11,15 +11,7 @@ router.post('/register', async (req, res) => {
   try {
     console.log('📝 Registration request received:', { email: req.body.email, role: req.body.role });
     
-    const { name, email, password, role, restaurantName, restaurantDetails, phone, address, adminCode } = req.body;
-
-    // Validate admin code if registering as admin
-    if (role === 'admin') {
-      if (adminCode !== 'ADMIN2025') {
-        console.log('❌ Invalid admin code');
-        return res.status(403).json({ error: 'Invalid admin code' });
-      }
-    }
+    const { name, email, password, role, restaurantName, restaurantDetails, phone, address } = req.body;
 
     // Validate required fields FIRST
     if (!name || !email || !password) {
@@ -171,6 +163,27 @@ router.get('/me', authenticate, async (req: any, res) => {
   } catch (error: any) {
     console.error('❌ Get me error:', error);
     res.status(500).json({ error: error.message });
+  }
+});
+
+// Update user profile
+router.patch('/profile', authenticate, async (req: any, res) => {
+  try {
+    const { name, phone, address } = req.body;
+    const user = await User.findById(req.userId);
+    
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    if (name) user.name = name;
+    if (phone !== undefined) user.phone = phone;
+    if (address !== undefined) user.address = address;
+
+    await user.save();
+    res.json(user);
+  } catch (error: any) {
+    res.status(400).json({ error: error.message });
   }
 });
 

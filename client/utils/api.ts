@@ -67,6 +67,13 @@ class ApiClient {
     return this.request<any>('/auth/me');
   }
 
+  async updateProfile(data: any) {
+    return this.request<any>('/auth/profile', {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
   // Restaurants
   async getRestaurants() {
     return this.request<any[]>('/restaurants');
@@ -86,6 +93,13 @@ class ApiClient {
 
   async getOwnerRestaurant() {
     return this.request<any>('/restaurants/owner/me');
+  }
+
+  async updateRestaurant(id: string, data: any) {
+    return this.request<any>(`/restaurants/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
   }
 
   async updateRestaurantStatus(id: string, status: string) {

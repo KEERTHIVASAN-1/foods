@@ -5,6 +5,7 @@ import { Plus, Edit2, Trash2, Check, X, Search, Image as ImageIcon, Package, Sta
 import { FoodItem, Restaurant } from '../types';
 import { api } from '../utils/api';
 import { transformItem } from '../utils/transformers';
+import { ensureUniqueItemImages } from '../utils/imageMapper';
 
 type View = 'dashboard' | 'items' | 'reviews';
 type FormView = 'list' | 'form';
@@ -40,10 +41,10 @@ const OwnerDashboard: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (activeView === 'reviews' && restaurant) {
+    if (activeView === 'reviews' && restaurant && items.length > 0) {
       loadReviews();
     }
-  }, [activeView, restaurant]);
+  }, [activeView, restaurant, items]);
 
   const loadDashboardData = async () => {
     try {
@@ -53,7 +54,9 @@ const OwnerDashboard: React.FC = () => {
       
       const itemsData = await api.getRestaurantItems(restaurantData._id);
       const transformedItems = itemsData.map((item: any) => transformItem(item, restaurantData.name));
-      setItems(transformedItems);
+      // Ensure ALL items have unique images - NO COMPROMISE
+      const itemsWithUniqueImages = ensureUniqueItemImages(transformedItems);
+      setItems(itemsWithUniqueImages);
     } catch (error) {
       console.error('Error loading dashboard data:', error);
     } finally {
@@ -68,6 +71,38 @@ const OwnerDashboard: React.FC = () => {
       setReviews(reviewsData);
     } catch (error) {
       console.error('Error loading reviews:', error);
+    }
+  };
+
+  const handleUpdateCoverImage = async (newImageUrl: string) => {
+    if (!restaurant || !newImageUrl.trim()) return;
+    
+    // Basic URL validation
+    try {
+      new URL(newImageUrl.trim());
+    } catch (e) {
+      alert('Please enter a valid image URL');
+      return;
+    }
+
+    try {
+      const updatedRestaurant = await api.updateRestaurant(restaurant._id || restaurant.id!, {
+        image: newImageUrl.trim()
+      });
+      
+      // Immediately update the restaurant state with the new image URL
+      setRestaurant(prevRestaurant => ({
+        ...prevRestaurant!,
+        image: newImageUrl.trim()
+      }));
+      
+      // Reload dashboard data to ensure everything is in sync with server
+      await loadDashboardData();
+      
+      alert('Cover image updated successfully!');
+    } catch (error: any) {
+      console.error('Error updating cover image:', error);
+      alert(error.message || 'Failed to update cover image. Please try again.');
     }
   };
 
@@ -206,6 +241,51 @@ const OwnerDashboard: React.FC = () => {
           animate={{ opacity: 1, y: 0 }}
           className="space-y-6"
         >
+          {/* Restaurant Cover Image Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-xl p-6 shadow-sm border border-gray-100"
+          >
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-900">Restaurant Cover Image</h2>
+              <button
+                onClick={async () => {
+                  const currentImage = restaurant.image || '';
+                  const newImage = prompt('Enter new cover image URL:', currentImage);
+                  if (newImage !== null && newImage.trim() && newImage.trim() !== currentImage) {
+                    await handleUpdateCoverImage(newImage.trim());
+                  }
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-brand-orange text-white rounded-lg font-semibold hover:bg-brand-red transition-colors"
+              >
+                <Edit2 size={18} />
+                <span>Edit Cover Image</span>
+              </button>
+            </div>
+            <div className="relative w-full h-64 bg-gray-100 rounded-lg overflow-hidden border-2 border-gray-200">
+              <img 
+                src={restaurant.image} 
+                alt={restaurant.name}
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  (e.target as HTMLImageElement).style.display = 'none';
+                }}
+              />
+              {!restaurant.image && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="text-center">
+                    <ImageIcon className="w-12 h-12 text-gray-400 mx-auto mb-2" />
+                    <p className="text-gray-500 text-sm">No cover image set</p>
+                  </div>
+                </div>
+              )}
+            </div>
+            {restaurant.image && (
+              <p className="text-xs text-gray-500 mt-2 break-all">{restaurant.image}</p>
+            )}
+          </motion.div>
+
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <motion.div
@@ -522,6 +602,19 @@ const OwnerDashboard: React.FC = () => {
                       className="w-full p-3 bg-white rounded-xl border-2 border-gray-200 focus:outline-none focus:border-brand-orange"
                     />
                   </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-900">Rating (0-5)</label>
+                    <input
+                      type="number"
+                      step="0.1"
+                      min="0"
+                      max="5"
+                      value={formData.rating || 0}
+                      onChange={(e) => setFormData({ ...formData, rating: parseFloat(e.target.value) || 0 })}
+                      className="w-full p-3 bg-white rounded-xl border-2 border-gray-200 focus:outline-none focus:border-brand-orange"
+                      placeholder="0.0"
+                    />
+                  </div>
                 </div>
 
                 <div className="flex gap-6 pt-2">
@@ -603,7 +696,7 @@ const OwnerDashboard: React.FC = () => {
                         </div>
                       </div>
                       {review.itemId && (
-                        <p className="text-sm text-gray-600">Item: {review.itemId.name || 'N/A'}</p>
+                        <p className="text-sm text-gray-600">Item: {(review.itemId as any)?.name || review.itemId || 'N/A'}</p>
                       )}
                     </div>
                     <span className="text-xs text-gray-500">

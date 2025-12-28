@@ -76,7 +76,7 @@ router.post('/', authenticate, authorize('owner'), async (req: AuthRequest, res)
   }
 });
 
-// Update restaurant status (admin)
+// Update restaurant status (admin) - MUST be before /:id route to avoid route conflicts
 router.patch('/:id/status', authenticate, authorize('admin'), async (req, res) => {
   try {
     const { status } = req.body;
@@ -90,6 +90,55 @@ router.patch('/:id/status', authenticate, authorize('admin'), async (req, res) =
     }
     res.json(restaurant);
   } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// Update restaurant (owner)
+router.patch('/:id', authenticate, authorize('owner'), async (req: AuthRequest, res) => {
+  try {
+    const restaurant = await Restaurant.findById(req.params.id);
+    if (!restaurant) {
+      return res.status(404).json({ error: 'Restaurant not found' });
+    }
+
+    // Verify ownership
+    if (restaurant.ownerId.toString() !== req.userId.toString()) {
+      return res.status(403).json({ error: 'Not authorized to update this restaurant' });
+    }
+
+    // Validate image URL format (basic validation - should be a valid URL)
+    if (req.body.image !== undefined) {
+      try {
+        new URL(req.body.image);
+      } catch (e) {
+        return res.status(400).json({ error: 'Invalid image URL format' });
+      }
+    }
+
+    // Only update fields that are provided
+    const updateData: any = {};
+    if (req.body.image !== undefined) updateData.image = req.body.image;
+    if (req.body.name !== undefined) updateData.name = req.body.name;
+    if (req.body.description !== undefined) updateData.description = req.body.description;
+    if (req.body.address !== undefined) updateData.address = req.body.address;
+    if (req.body.cuisine !== undefined) updateData.cuisine = req.body.cuisine;
+    if (req.body.deliveryTime !== undefined) updateData.deliveryTime = req.body.deliveryTime;
+    if (req.body.openingHours !== undefined) updateData.openingHours = req.body.openingHours;
+
+    const updatedRestaurant = await Restaurant.findByIdAndUpdate(
+      req.params.id,
+      updateData,
+      { new: true }
+    ).populate('ownerId', 'name email');
+    
+    if (!updatedRestaurant) {
+      return res.status(404).json({ error: 'Restaurant not found' });
+    }
+    
+    res.json(updatedRestaurant);
+  } catch (error: any) {
+    console.error('Error updating restaurant:', error);
     res.status(500).json({ error: error.message });
   }
 });

@@ -11,7 +11,6 @@ import Favorites from './pages/Favorites';
 import Admin from './pages/Admin';
 import OwnerDashboard from './pages/OwnerDashboard';
 import Profile from './pages/Profile';
-import ThreeBackground from './components/ThreeBackground';
 
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user, authLoading } = useApp();
@@ -40,6 +39,14 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
     }
   }
   
+  // Redirect admin from root to admin page (restaurant management)
+  if (user.role === 'admin') {
+    const path = location.pathname;
+    if (path === '/') {
+      return <Navigate to="/admin" replace />;
+    }
+  }
+  
   return <Layout>{children}</Layout>;
 };
 
@@ -64,7 +71,7 @@ const App: React.FC = () => {
     <AppProvider>
       <HashRouter>
         <div className="relative min-h-screen bg-gray-50 text-gray-900 font-sans">
-           <ThreeBackground />
+           {/* ThreeBackground only on non-auth pages to avoid WebGL conflicts */}
            <AppRoutes />
         </div>
       </HashRouter>

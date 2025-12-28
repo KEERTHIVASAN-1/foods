@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useApp } from '../context/AppContext';
 import { User, Mail, MapPin, Phone, Building2, LogOut, Edit2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { api } from '../utils/api';
 
 const Profile: React.FC = () => {
   const { user, logout } = useApp();
@@ -11,17 +12,38 @@ const Profile: React.FC = () => {
   const [editedName, setEditedName] = useState(user?.name || '');
   const [editedPhone, setEditedPhone] = useState((user as any)?.phone || '');
   const [editedAddress, setEditedAddress] = useState((user as any)?.address || '');
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      setEditedName(user.name || '');
+      setEditedPhone((user as any)?.phone || '');
+      setEditedAddress((user as any)?.address || '');
+    }
+  }, [user]);
 
   const handleLogout = () => {
     logout();
     navigate('/auth');
   };
 
-  const handleSave = () => {
-    // TODO: Implement profile update API call
-    setIsEditing(false);
-    // For now, just update local state
-    console.log('Profile update:', { editedName, editedPhone, editedAddress });
+  const handleSave = async () => {
+    try {
+      setSaving(true);
+      await api.updateProfile({
+        name: editedName,
+        phone: editedPhone || '',
+        address: editedAddress || ''
+      });
+      setIsEditing(false);
+      // Reload page to refresh user data in context
+      setTimeout(() => {
+        window.location.reload();
+      }, 500);
+    } catch (error: any) {
+      alert(error.message || 'Failed to update profile');
+      setSaving(false);
+    }
   };
 
   if (!user) {
@@ -84,9 +106,10 @@ const Profile: React.FC = () => {
                 </button>
                 <button
                   onClick={handleSave}
-                  className="px-4 py-2 bg-brand-orange text-white rounded-lg font-medium hover:bg-brand-red transition-colors"
+                  disabled={saving}
+                  className="px-4 py-2 bg-brand-orange text-white rounded-lg font-medium hover:bg-brand-red transition-colors disabled:opacity-50"
                 >
-                  Save
+                  {saving ? 'Saving...' : 'Save'}
                 </button>
               </>
             ) : (
@@ -144,7 +167,7 @@ const Profile: React.FC = () => {
                       placeholder="Enter phone number"
                     />
                   ) : (
-                    <p className="mt-1 text-lg text-gray-900">{user?.phone || 'Not provided'}</p>
+                    <p className="mt-1 text-lg text-gray-900">{(user as any)?.phone || 'Not provided'}</p>
                   )}
                 </div>
               </div>
@@ -164,7 +187,7 @@ const Profile: React.FC = () => {
                       rows={3}
                     />
                   ) : (
-                    <p className="mt-1 text-lg text-gray-900">{user?.address || 'Not provided'}</p>
+                    <p className="mt-1 text-lg text-gray-900">{(user as any)?.address || 'Not provided'}</p>
                   )}
                 </div>
               </div>

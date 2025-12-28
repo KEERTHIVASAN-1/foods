@@ -89,38 +89,13 @@ const Admin: React.FC = () => {
     return null;
   }
 
-  // Show restaurant management for admin, item management for admin
-  if (user?.role === 'admin' && activeTab === 'restaurants') {
+  // Admin only sees restaurants, no items
+  if (user?.role === 'admin') {
     return <AdminRestaurants />;
   }
 
   return (
     <div className="pb-20 max-w-[95%] md:max-w-6xl mx-auto px-2 md:px-4">
-      {user?.role === 'admin' && (
-        <div className="flex gap-2 mb-6 border-b border-gray-200">
-          <button
-            onClick={() => setActiveTab('restaurants')}
-            className={`px-4 py-2 font-bold transition-colors flex items-center gap-2 ${
-              activeTab === 'restaurants'
-                ? 'text-brand-orange border-b-2 border-brand-orange'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            <Store size={18} />
-            Restaurants
-          </button>
-          <button
-            onClick={() => setActiveTab('items')}
-            className={`px-4 py-2 font-bold transition-colors ${
-              activeTab === 'items'
-                ? 'text-brand-orange border-b-2 border-brand-orange'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            Items
-          </button>
-        </div>
-      )}
       
       <div className="flex items-center justify-between mb-8">
         <div>

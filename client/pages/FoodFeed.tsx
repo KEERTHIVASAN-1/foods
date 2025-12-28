@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { Star, Clock, MapPin } from 'lucide-react';
+import { Star, Clock, MapPin, Search } from 'lucide-react';
 import { Restaurant } from '../types';
 import { api } from '../utils/api';
 import { getRestaurantImage } from '../utils/imageMapper';
@@ -10,6 +10,7 @@ const FoodFeed: React.FC = () => {
   const navigate = useNavigate();
   const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     loadData();
@@ -19,18 +20,55 @@ const FoodFeed: React.FC = () => {
     try {
       setLoading(true);
       const restaurantsData = await api.getRestaurants();
-      // Update restaurant images to look like real restaurant/hotel images
-      const restaurantsWithImages = restaurantsData.map((restaurant: Restaurant) => ({
-        ...restaurant,
-        image: restaurant.image || getRestaurantImage(restaurant.cuisine || 'restaurant')
-      }));
-      setRestaurants(restaurantsWithImages);
+      // Ensure unique restaurant cover images - NO COMPROMISE, ALL MUST BE UNIQUE
+      const usedImages = new Set<string>();
+      const restaurantsWithImages = restaurantsData.map((restaurant: Restaurant, index: number) => {
+        let image = restaurant.image || '';
+        
+        // If no image or image already used, get a unique one
+        if (!image || usedImages.has(image)) {
+          image = getRestaurantImage(restaurant.cuisine || 'restaurant', Array.from(usedImages));
+          
+          // If still duplicate, force uniqueness
+          if (usedImages.has(image)) {
+            const baseUrl = image.split('&t=')[0].split('&unique=')[0].split('&')[0];
+            image = `${baseUrl}&unique=${Date.now()}-${restaurant._id || restaurant.id || index}-${Math.random().toString(36).substr(2, 9)}`;
+          }
+        }
+        
+        usedImages.add(image);
+        return { ...restaurant, image };
+      });
+      
+      // Final verification: check for duplicates and fix
+      const finalImageMap = new Map<string, number>();
+      const finalRestaurants = restaurantsWithImages.map((restaurant: Restaurant, index: number) => {
+        const currentImage = restaurant.image;
+        const count = finalImageMap.get(currentImage) || 0;
+        finalImageMap.set(currentImage, count + 1);
+        
+        if (count > 0) {
+          const baseUrl = currentImage.split('&t=')[0].split('&unique=')[0].split('&')[0];
+          const uniqueImage = `${baseUrl}&unique=${Date.now()}-${restaurant._id || restaurant.id || index}-forced-${Math.random().toString(36).substr(2, 9)}`;
+          return { ...restaurant, image: uniqueImage };
+        }
+        return restaurant;
+      });
+      
+      setRestaurants(finalRestaurants);
     } catch (error) {
       console.error('Error loading restaurants:', error);
     } finally {
       setLoading(false);
     }
   };
+
+  // Filter restaurants based on search term
+  const filteredRestaurants = restaurants.filter((restaurant) =>
+    restaurant.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    restaurant.cuisine?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    restaurant.address?.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   if (loading) {
     return (
@@ -61,16 +99,30 @@ const FoodFeed: React.FC = () => {
           className="mb-6 px-2 md:px-0"
         >
           <h1 className="text-2xl md:text-3xl font-bold text-gray-900 mb-2">Restaurants</h1>
-          <p className="text-gray-600 text-sm md:text-base">Discover your favorite food places</p>
+          <p className="text-gray-600 text-sm md:text-base mb-4">Discover your favorite food places</p>
+          
+          {/* Search Bar */}
+          <div className="relative mb-4">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
+            <input 
+              type="text" 
+              placeholder="Search restaurants, cuisine, or location..." 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full bg-white border-2 border-gray-200 rounded-xl py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-brand-orange/50 focus:border-brand-orange transition-all text-gray-900 font-medium shadow-sm"
+            />
+          </div>
         </motion.div>
 
-        {restaurants.length === 0 ? (
+        {filteredRestaurants.length === 0 ? (
           <div className="text-center py-20">
-            <p className="text-gray-500 text-lg">No restaurants available</p>
+            <p className="text-gray-500 text-lg">
+              {searchTerm ? `No restaurants found for "${searchTerm}"` : 'No restaurants available'}
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4">
-            {restaurants.map((restaurant, index) => (
+            {filteredRestaurants.map((restaurant, index) => (
               <motion.div
                 key={restaurant._id || restaurant.id}
                 initial={{ opacity: 0, scale: 0.9 }}

@@ -3,7 +3,7 @@ import { motion, useMotionValue, useTransform, useAnimation, PanInfo } from 'fra
 import { useApp } from '../context/AppContext';
 import { X, Heart, Info, ShoppingCart } from 'lucide-react';
 import { FoodItem } from '../types';
-import BubbleBackground from '../components/BubbleBackground';
+import AmbientBackground from '../components/AmbientBackground';
 import RestaurantInfo from '../components/RestaurantInfo';
 import { api } from '../utils/api';
 
@@ -157,7 +157,7 @@ const SwipePage: React.FC = () => {
   if (!swipeStack.length) {
     return (
       <div className="flex flex-col items-center justify-center h-screen w-full relative overflow-hidden">
-        <BubbleBackground />
+        <AmbientBackground />
         <div className="relative z-10 flex flex-col items-center">
             <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4 animate-pulse">
             <span className="text-4xl">🍔</span>
@@ -177,9 +177,9 @@ const SwipePage: React.FC = () => {
         initial={{ opacity: 0 }} 
         animate={{ opacity: 1 }} 
         exit={{ opacity: 0 }}
-        className="flex flex-col items-center justify-center h-screen w-full relative overflow-hidden pt-4"
+        className="flex flex-col items-center justify-center min-h-screen w-full relative overflow-hidden pt-4"
         >
-        <BubbleBackground />
+        <AmbientBackground />
         
         <div className="relative w-full max-w-[95%] md:max-w-md lg:max-w-lg h-[65vh] md:h-[650px] lg:h-[700px] flex justify-center z-10 mx-auto px-2">
             {swipeStack.map((item, index) => {
