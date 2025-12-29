@@ -36,3 +36,4 @@ The frontend server should now start without errors. The Tailwind CSS classes wi
 **The error should be fixed now! The frontend should start successfully.**
 
 
+

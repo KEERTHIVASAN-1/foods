@@ -43,3 +43,4 @@ const RestaurantSchema = new Schema<IRestaurant>({
 export default mongoose.model<IRestaurant>('Restaurant', RestaurantSchema);
 
 
+

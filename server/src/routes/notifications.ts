@@ -36,3 +36,4 @@ router.patch('/:id/read', authenticate, async (req: AuthRequest, res) => {
 export default router;
 
 
+

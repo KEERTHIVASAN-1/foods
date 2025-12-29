@@ -105,3 +105,4 @@ These can be fixed later but don't prevent the app from working.
 Everything is configured correctly. Run `npm run dev` and start using the application!
 
 
+

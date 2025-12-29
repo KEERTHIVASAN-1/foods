@@ -76,3 +76,4 @@ The server will run on `http://localhost:5000`
 - `PATCH /api/notifications/:id/read` - Mark notification as read
 
 
+
