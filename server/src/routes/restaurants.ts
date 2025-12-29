@@ -103,16 +103,19 @@ router.patch('/:id/status', authenticate, authorize('admin'), async (req, res) =
 // Update restaurant (owner)
 router.patch('/:id', authenticate, authorize('owner'), async (req: AuthRequest, res) => {
   try {
+    // Verify authentication first
+    if (!req.userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
+    const userId = req.userId; // Store in const for TypeScript
+    
     const restaurant = await Restaurant.findById(req.params.id);
     if (!restaurant) {
       return res.status(404).json({ error: 'Restaurant not found' });
     }
 
     // Verify ownership
-    if (!req.userId) {
-      return res.status(401).json({ error: 'User not authenticated' });
-    }
-    if (restaurant.ownerId.toString() !== req.userId.toString()) {
+    if (restaurant.ownerId.toString() !== userId.toString()) {
       return res.status(403).json({ error: 'Not authorized to update this restaurant' });
     }
 

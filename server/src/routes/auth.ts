@@ -189,8 +189,8 @@ router.patch('/profile', authenticate, async (req: any, res) => {
     await user.save();
     
     // Return user without password
-    const userObj = user.toObject();
-    const { password, ...userWithoutPassword } = userObj as any;
+    const userObj = user.toObject() as Record<string, any>;
+    const { password: _, ...userWithoutPassword } = userObj;
     res.json(userWithoutPassword);
   } catch (error: any) {
     res.status(400).json({ error: error.message });

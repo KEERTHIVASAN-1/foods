@@ -41,3 +41,4 @@ Delete or ignore the `render.yaml` file and configure manually in the Render das
 2. Trigger a new deployment
 3. Check the build logs - it should now run `npm install && npm run build` instead of `vercel build`
 
+

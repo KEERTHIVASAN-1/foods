@@ -56,3 +56,4 @@ If you see errors during build:
 3. Ensure `VITE_API_URL` is set correctly
 4. Check the build logs for specific errors
 
+

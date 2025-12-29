@@ -39,8 +39,9 @@ router.post('/', authenticate, async (req: AuthRequest, res) => {
     if (!req.userId) {
       return res.status(401).json({ error: 'User not authenticated' });
     }
+    const userId = req.userId; // Store in const for TypeScript
     const User = (await import('../models/User.js')).default;
-    const user = await User.findById(req.userId);
+    const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
@@ -58,7 +59,7 @@ router.post('/', authenticate, async (req: AuthRequest, res) => {
     const review = new Review({
       itemId,
       restaurantId,
-      userId: req.userId,
+      userId: userId,
       userName: user.name,
       rating: parseInt(rating),
       comment: comment.trim()
