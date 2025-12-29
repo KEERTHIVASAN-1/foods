@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { motion, useMotionValue, useTransform, useAnimation, PanInfo } from 'framer-motion';
+import React, { useState, useMemo, useCallback, memo } from 'react';
+import { motion, useMotionValue, useTransform, useAnimation, PanInfo, useSpring } from 'framer-motion';
 import { useApp } from '../context/AppContext';
 import { X, Heart, Info, ShoppingCart } from 'lucide-react';
 import { FoodItem } from '../types';
@@ -15,63 +15,87 @@ interface SwipeCardProps {
   onShowInfo: (item: FoodItem) => void;
 }
 
-const SwipeCard: React.FC<SwipeCardProps> = ({ item, isTop, indexFromTop, onSwipe, onShowInfo }) => {
+const SwipeCard: React.FC<SwipeCardProps> = memo(({ item, isTop, indexFromTop, onSwipe, onShowInfo }) => {
   const x = useMotionValue(0);
   const controls = useAnimation();
-  const rotate = useTransform(x, [-200, 200], [-25, 25]);
-  const opacity = useTransform(x, [-150, -100, 0, 100, 150], [0, 1, 1, 1, 0]);
-  const likeOpacity = useTransform(x, [20, 150], [0, 1]);
-  const nopeOpacity = useTransform(x, [-150, -20], [1, 0]);
+  
+  // Use spring for smoother animations on mobile
+  const springConfig = { stiffness: 300, damping: 30 };
+  const xSpring = useSpring(x, springConfig);
+  
+  const rotate = useTransform(xSpring, [-200, 200], [-25, 25]);
+  const opacity = useTransform(xSpring, [-150, -100, 0, 100, 150], [0, 1, 1, 1, 0]);
+  const likeOpacity = useTransform(xSpring, [20, 150], [0, 1]);
+  const nopeOpacity = useTransform(xSpring, [-150, -20], [1, 0]);
+
+  // Memoize stack position calculations
+  const stackPosition = useMemo(() => {
+    if (isTop) {
+      return { scale: 1, y: 0, opacity: 1, zIndex: 100 };
+    }
+    const scale = Math.max(1 - indexFromTop * 0.05, 0.85);
+    const yOffset = indexFromTop * 15;
+    const zIndex = 100 - indexFromTop;
+    const targetOpacity = indexFromTop > 3 ? 0 : 1;
+    return { scale, y: yOffset, opacity: targetOpacity, zIndex };
+  }, [isTop, indexFromTop]);
 
   React.useEffect(() => {
     if (isTop) {
       x.set(0);
-      controls.start({ x: 0, opacity: 1, scale: 1, rotate: 0, y: 0 });
+      controls.start({ 
+        x: 0, 
+        opacity: 1, 
+        scale: 1, 
+        rotate: 0, 
+        y: 0,
+        transition: { type: "spring", stiffness: 300, damping: 30 }
+      });
     } else {
-        // Stack effect logic
-        const scale = Math.max(1 - indexFromTop * 0.05, 0.85); // Scale down by 0.05 per item, max 3 items
-        const yOffset = indexFromTop * 15; // Move down by 15px per item
-        const zIndex = 100 - indexFromTop;
-        const targetOpacity = indexFromTop > 3 ? 0 : 1; // Hide items deeper in the stack
-        
-        controls.start({ 
-            scale, 
-            y: yOffset, 
-            opacity: targetOpacity,
-            zIndex,
-            rotate: 0, // Reset rotation for background cards
-            transition: { duration: 0.3 }
-        });
+      controls.start({ 
+        ...stackPosition,
+        rotate: 0,
+        x: 0,
+        transition: { type: "spring", stiffness: 300, damping: 30, duration: 0.2 }
+      });
     }
-  }, [isTop, indexFromTop, controls, x]);
+  }, [isTop, stackPosition, controls, x]);
 
-  const handleDragEnd = async (event: any, info: PanInfo) => {
+  const handleDragEnd = useCallback(async (event: any, info: PanInfo) => {
     const threshold = 50;
     const swipeDistance = window.innerWidth + 200;
     if (Math.abs(info.offset.x) > threshold || Math.abs(info.velocity.x) > 500) {
       const direction = info.offset.x > 0 ? 'right' : 'left';
-      await controls.start({ x: direction === 'right' ? swipeDistance : -swipeDistance, opacity: 0 });
+      await controls.start({ 
+        x: direction === 'right' ? swipeDistance : -swipeDistance, 
+        opacity: 0,
+        transition: { type: "spring", stiffness: 300, damping: 30, duration: 0.3 }
+      });
       onSwipe(direction);
     } else {
-      controls.start({ x: 0 });
+      controls.start({ 
+        x: 0,
+        transition: { type: "spring", stiffness: 300, damping: 30 }
+      });
     }
-  };
+  }, [controls, onSwipe]);
 
   return (
     <motion.div
       style={{ 
-        x, 
+        x: xSpring, 
         rotate, 
-        // Initial values will be overridden by animation controls, but good for first render
-        zIndex: 100 - indexFromTop,
-        pointerEvents: isTop ? 'auto' : 'none' 
+        zIndex: stackPosition.zIndex,
+        pointerEvents: isTop ? 'auto' : 'none',
+        willChange: isTop ? 'transform' : 'auto' // GPU acceleration hint
       }}
       drag="x"
       dragConstraints={isTop ? undefined : { left: 0, right: 0, top: 0, bottom: 0 }} 
-      dragElastic={isTop ? 0.6 : 0} 
+      dragElastic={isTop ? 0.5 : 0}
+      dragMomentum={false} // Disable momentum for better mobile performance
       onDragEnd={handleDragEnd}
       animate={controls}
-      initial={{ scale: 0.9, opacity: 0, y: 20 }} // Start slightly lower and invisible
+      initial={{ scale: 0.9, opacity: 0, y: 20 }}
       className="absolute top-0 w-full max-w-md lg:max-w-lg h-[65vh] md:h-[650px] lg:h-[700px] bg-white rounded-3xl shadow-2xl overflow-hidden border border-gray-100 cursor-grab active:cursor-grabbing select-none origin-top"
     >
       <div className="relative h-3/5 w-full">
@@ -79,14 +103,12 @@ const SwipeCard: React.FC<SwipeCardProps> = ({ item, isTop, indexFromTop, onSwip
            src={item.imageUrl || item.image} 
            alt={item.name} 
            className="w-full h-full object-cover pointer-events-none"
-           onLoad={() => {
-             // Image loaded successfully
-           }}
+           loading={isTop ? "eager" : "lazy"}
+           decoding="async"
+           style={{ willChange: 'opacity' }}
            onError={(e) => {
-             // Fallback if image fails to load
              (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80';
            }}
-           loading="eager"
          />
          <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
          
@@ -119,11 +141,8 @@ const SwipeCard: React.FC<SwipeCardProps> = ({ item, isTop, indexFromTop, onSwip
         </div>
         
         <button 
-           onClick={(e) => {
-             e.stopPropagation();
-             onShowInfo(item);
-           }}
-           className="flex items-center justify-center gap-2 mt-2 text-sm font-bold text-brand-red hover:text-white hover:bg-brand-red transition-all w-full p-3 rounded-xl bg-brand-red/5 border border-brand-red/10 active:scale-95 shadow-sm"
+           onClick={handleShowInfo}
+           className="flex items-center justify-center gap-2 mt-2 text-sm font-bold text-brand-red hover:text-white hover:bg-brand-red transition-transform w-full p-3 rounded-xl bg-brand-red/5 border border-brand-red/10 active:scale-95 shadow-sm touch-manipulation"
          >
             <Info size={16} />
             <span>View Details & Reviews</span>
@@ -131,13 +150,15 @@ const SwipeCard: React.FC<SwipeCardProps> = ({ item, isTop, indexFromTop, onSwip
       </div>
     </motion.div>
   );
-};
+});
+
+SwipeCard.displayName = 'SwipeCard';
 
 const SwipePage: React.FC = () => {
   const { swipeStack, handleSwipe, addToCart, restaurants } = useApp();
   const [selectedRestaurant, setSelectedRestaurant] = useState<any>(null);
   
-  const handleShowInfo = async (item: FoodItem) => {
+  const handleShowInfo = useCallback(async (item: FoodItem) => {
     if (item.restaurantId) {
       try {
         const restaurant = await api.getRestaurant(item.restaurantId);
@@ -152,7 +173,7 @@ const SwipePage: React.FC = () => {
       const restaurant = restaurants.find(r => r.name === item.restaurant);
       if (restaurant) setSelectedRestaurant(restaurant);
     }
-  };
+  }, [restaurants]);
 
   if (!swipeStack.length) {
     return (
@@ -182,9 +203,11 @@ const SwipePage: React.FC = () => {
         <AmbientBackground />
         
         <div className="relative w-full max-w-[95%] md:max-w-md lg:max-w-lg h-[65vh] md:h-[650px] lg:h-[700px] flex justify-center z-10 mx-auto px-2">
-            {swipeStack.map((item, index) => {
-            const isTop = index === activeIndex;
-            const indexFromTop = activeIndex - index;
+            {swipeStack.slice(Math.max(0, activeIndex - 2), activeIndex + 1).map((item, relativeIndex) => {
+            const sliceStart = Math.max(0, activeIndex - 2);
+            const actualIndex = sliceStart + relativeIndex;
+            const isTop = actualIndex === activeIndex;
+            const indexFromTop = activeIndex - actualIndex;
             return (
                 <SwipeCard 
                 key={item.id} 
@@ -200,28 +223,25 @@ const SwipePage: React.FC = () => {
 
         <div className="flex items-center justify-center gap-4 md:gap-6 mt-6 md:mt-8 z-20 pb-4">
             <motion.button 
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.95 }}
+            whileTap={{ scale: 0.9 }}
             onClick={() => swipeStack[activeIndex] && handleSwipe('left', swipeStack[activeIndex])}
-            className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-white text-brand-red shadow-xl flex items-center justify-center transition-all border-2 border-brand-red/20 hover:border-brand-red"
+            className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-white text-brand-red shadow-xl flex items-center justify-center transition-transform active:scale-90 border-2 border-brand-red/20 hover:border-brand-red touch-manipulation"
             >
             <X size={28} strokeWidth={3} className="md:w-8 md:h-8" />
             </motion.button>
             
             <motion.button 
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.95 }}
+            whileTap={{ scale: 0.9 }}
             onClick={() => swipeStack[activeIndex] && addToCart(swipeStack[activeIndex])}
-            className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-brand-yellow text-white shadow-xl flex items-center justify-center hover:shadow-2xl transition-all"
+            className="w-12 h-12 md:w-14 md:h-14 rounded-full bg-brand-yellow text-white shadow-xl flex items-center justify-center hover:shadow-2xl transition-transform active:scale-90 touch-manipulation"
             >
             <ShoppingCart size={20} fill="currentColor" className="md:w-6 md:h-6" />
             </motion.button>
 
             <motion.button 
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.95 }}
+            whileTap={{ scale: 0.9 }}
             onClick={() => swipeStack[activeIndex] && handleSwipe('right', swipeStack[activeIndex])}
-            className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-gradient-to-br from-brand-orange to-brand-red text-white shadow-xl shadow-brand-red/30 flex items-center justify-center hover:shadow-2xl transition-all"
+            className="w-14 h-14 md:w-16 md:h-16 rounded-full bg-gradient-to-br from-brand-orange to-brand-red text-white shadow-xl shadow-brand-red/30 flex items-center justify-center hover:shadow-2xl transition-transform active:scale-90 touch-manipulation"
             >
             <Heart size={28} fill="currentColor" className="md:w-8 md:h-8" />
             </motion.button>

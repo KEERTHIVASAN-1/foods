@@ -24,3 +24,22 @@ body {
   min-height: 100vh;
 }
 
+/* Mobile performance optimizations */
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* GPU acceleration for swipe cards */
+.swipe-card {
+  transform: translateZ(0);
+  will-change: transform;
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+/* Touch optimization */
+button, a {
+  touch-action: manipulation;
+  -webkit-touch-callout: none;
+}
+
