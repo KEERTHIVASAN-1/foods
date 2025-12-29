@@ -1,5 +1,40 @@
 // API Base URL - uses environment variable with fallback
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// Clean and normalize the API URL to prevent malformed URLs
+const getApiBaseUrl = (): string => {
+  const envUrl = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+  
+  // Remove any trailing slashes and whitespace
+  let url = envUrl.trim().replace(/\/+$/, '');
+  
+  // Check if URL contains multiple domains (malformed URL fix)
+  // If it contains something like "domain1.com/domain2.com", extract the last domain
+  const domainMatch = url.match(/([a-zA-Z0-9-]+\.(?:vercel\.app|onrender\.com|netlify\.app|herokuapp\.com|localhost|127\.0\.0\.1)[^\/]*)/);
+  if (domainMatch && url.includes('/') && !url.startsWith('http')) {
+    // Extract the last valid domain
+    url = domainMatch[1];
+  }
+  
+  // If URL doesn't start with http:// or https://, add https:// (use https for production)
+  if (!url.match(/^https?:\/\//)) {
+    // For production domains, use https
+    if (url.includes('vercel.app') || url.includes('onrender.com') || url.includes('netlify.app')) {
+      url = `https://${url}`;
+    } else {
+      url = `http://${url}`;
+    }
+  }
+  
+  // Ensure /api is at the end if not already present
+  if (!url.endsWith('/api')) {
+    // Remove any existing /api and add it properly
+    url = url.replace(/\/api\/?$/, '');
+    url = `${url}/api`;
+  }
+  
+  return url;
+};
+
+const API_BASE_URL = getApiBaseUrl();
 
 console.log('🔗 API Base URL:', API_BASE_URL);
 
@@ -24,7 +59,10 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const url = `${API_BASE_URL}${endpoint}`;
+    // Ensure endpoint starts with / and API_BASE_URL doesn't end with /
+    const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+    const cleanBaseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
+    const url = `${cleanBaseUrl}${cleanEndpoint}`;
     console.log(`🌐 API Request: ${options.method || 'GET'} ${url}`);
 
     try {
