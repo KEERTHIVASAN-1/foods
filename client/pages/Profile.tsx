@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { api } from '../utils/api';
 
 const Profile: React.FC = () => {
-  const { user, logout } = useApp();
+  const { user, logout, refreshUser } = useApp();
   const navigate = useNavigate();
   const [isEditing, setIsEditing] = useState(false);
   const [editedName, setEditedName] = useState(user?.name || '');
@@ -35,11 +35,10 @@ const Profile: React.FC = () => {
         phone: editedPhone || '',
         address: editedAddress || ''
       });
+      // Refresh user data in context
+      await refreshUser();
       setIsEditing(false);
-      // Reload page to refresh user data in context
-      setTimeout(() => {
-        window.location.reload();
-      }, 500);
+      setSaving(false);
     } catch (error: any) {
       alert(error.message || 'Failed to update profile');
       setSaving(false);

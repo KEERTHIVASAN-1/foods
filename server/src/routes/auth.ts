@@ -181,7 +181,11 @@ router.patch('/profile', authenticate, async (req: any, res) => {
     if (address !== undefined) user.address = address;
 
     await user.save();
-    res.json(user);
+    
+    // Return user without password
+    const userObj = user.toObject();
+    delete userObj.password;
+    res.json(userObj);
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }

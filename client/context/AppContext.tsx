@@ -10,6 +10,7 @@ interface AppContextType {
   login: (email: string, password: string) => Promise<void>;
   register: (data: any) => Promise<void>;
   logout: () => void;
+  refreshUser: () => Promise<void>;
   foods: FoodItem[];
   restaurantsLoading: boolean;
   foodsLoading: boolean;
@@ -208,6 +209,24 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
     await loadData();
   };
 
+  const refreshUser = async () => {
+    try {
+      const userData = await api.getMe();
+      setUser({ 
+        id: userData._id, 
+        _id: userData._id, 
+        name: userData.name, 
+        email: userData.email, 
+        role: userData.role,
+        restaurantId: userData.restaurantId?.toString(),
+        phone: userData.phone,
+        address: userData.address
+      });
+    } catch (error) {
+      console.error('Failed to refresh user:', error);
+    }
+  };
+
   const login = async (email: string, password: string) => {
     const response = await api.login(email, password);
     localStorage.setItem('token', response.token);
@@ -392,7 +411,7 @@ export const AppProvider: React.FC<{ children: ReactNode }> = ({ children }) => 
 
   return (
     <AppContext.Provider value={{
-      user, restaurants, login, register, logout, foods, restaurantsLoading, foodsLoading, authLoading,
+      user, restaurants, login, register, logout, refreshUser, foods, restaurantsLoading, foodsLoading, authLoading,
       addFood, updateFood, deleteFood, cart, addToCart, removeFromCart, setCart,
       favorites, toggleFavorite, removeAllFavorites, swipeStack, handleSwipe, refreshData
     }}>
