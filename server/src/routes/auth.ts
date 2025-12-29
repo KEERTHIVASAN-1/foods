@@ -155,6 +155,9 @@ router.post('/login', async (req, res) => {
 
 router.get('/me', authenticate, async (req: any, res) => {
   try {
+    if (!req.userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
     const user = await User.findById(req.userId).select('-password').lean();
     if (!user) {
       return res.status(404).json({ error: 'User not found' });
@@ -169,6 +172,9 @@ router.get('/me', authenticate, async (req: any, res) => {
 // Update user profile
 router.patch('/profile', authenticate, async (req: any, res) => {
   try {
+    if (!req.userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
     const { name, phone, address } = req.body;
     const user = await User.findById(req.userId);
     
@@ -184,8 +190,8 @@ router.patch('/profile', authenticate, async (req: any, res) => {
     
     // Return user without password
     const userObj = user.toObject();
-    delete userObj.password;
-    res.json(userObj);
+    const { password, ...userWithoutPassword } = userObj as any;
+    res.json(userWithoutPassword);
   } catch (error: any) {
     res.status(400).json({ error: error.message });
   }

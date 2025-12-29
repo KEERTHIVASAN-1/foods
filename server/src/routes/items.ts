@@ -54,6 +54,9 @@ router.post('/', authenticate, authorize('owner', 'admin'), async (req: AuthRequ
   try {
     // Verify restaurant ownership (unless admin)
     if (req.userRole === 'owner') {
+      if (!req.userId) {
+        return res.status(401).json({ error: 'User not authenticated' });
+      }
       const restaurant = await Restaurant.findOne({ ownerId: req.userId });
       if (!restaurant) {
         return res.status(403).json({ error: 'No restaurant found for owner' });
@@ -87,6 +90,9 @@ router.put('/:id', authenticate, authorize('owner', 'admin'), async (req: AuthRe
 
     // Verify ownership (unless admin)
     if (req.userRole === 'owner') {
+      if (!req.userId) {
+        return res.status(401).json({ error: 'User not authenticated' });
+      }
       const restaurant = await Restaurant.findOne({ ownerId: req.userId });
       if (restaurant?._id.toString() !== item.restaurantId.toString()) {
         return res.status(403).json({ error: 'Not authorized' });
@@ -115,6 +121,9 @@ router.delete('/:id', authenticate, authorize('owner', 'admin'), async (req: Aut
 
     // Verify ownership (unless admin)
     if (req.userRole === 'owner') {
+      if (!req.userId) {
+        return res.status(401).json({ error: 'User not authenticated' });
+      }
       const restaurant = await Restaurant.findOne({ ownerId: req.userId });
       if (restaurant?._id.toString() !== item.restaurantId.toString()) {
         return res.status(403).json({ error: 'Not authorized' });

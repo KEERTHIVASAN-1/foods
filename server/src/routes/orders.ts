@@ -7,6 +7,9 @@ const router = express.Router();
 // Get user orders
 router.get('/me', authenticate, async (req: AuthRequest, res) => {
   try {
+    if (!req.userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
     const orders = await Order.find({ userId: req.userId })
       .populate('restaurantId', 'name')
       .sort({ createdAt: -1 });
@@ -19,6 +22,9 @@ router.get('/me', authenticate, async (req: AuthRequest, res) => {
 // Create order
 router.post('/', authenticate, async (req: AuthRequest, res) => {
   try {
+    if (!req.userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
     const { restaurantId, items, totalAmount, deliveryAddress } = req.body;
 
     if (!restaurantId || !items || items.length === 0 || !totalAmount) {

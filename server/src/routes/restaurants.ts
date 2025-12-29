@@ -28,6 +28,9 @@ router.get('/all', authenticate, authorize('admin'), async (req, res) => {
 // Get owner's restaurant (must be before /:id route)
 router.get('/owner/me', authenticate, authorize('owner'), async (req: AuthRequest, res) => {
   try {
+    if (!req.userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
     const restaurant = await Restaurant.findOne({ ownerId: req.userId }).populate('ownerId', 'name email');
     if (!restaurant) {
       return res.status(404).json({ error: 'Restaurant not found' });
@@ -64,6 +67,9 @@ router.get('/:id', async (req, res) => {
 // Create restaurant (owner)
 router.post('/', authenticate, authorize('owner'), async (req: AuthRequest, res) => {
   try {
+    if (!req.userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
     const restaurant = new Restaurant({
       ...req.body,
       ownerId: req.userId,
@@ -103,6 +109,9 @@ router.patch('/:id', authenticate, authorize('owner'), async (req: AuthRequest, 
     }
 
     // Verify ownership
+    if (!req.userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
     if (restaurant.ownerId.toString() !== req.userId.toString()) {
       return res.status(403).json({ error: 'Not authorized to update this restaurant' });
     }

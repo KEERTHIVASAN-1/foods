@@ -36,6 +36,9 @@ router.get('/item/:id', async (req, res) => {
 // Create review
 router.post('/', authenticate, async (req: AuthRequest, res) => {
   try {
+    if (!req.userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
     const User = (await import('../models/User.js')).default;
     const user = await User.findById(req.userId);
     if (!user) {

@@ -7,6 +7,9 @@ const router = express.Router();
 // Get user notifications
 router.get('/', authenticate, async (req: AuthRequest, res) => {
   try {
+    if (!req.userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
     const notifications = await Notification.find({ userId: req.userId })
       .sort({ createdAt: -1 })
       .limit(50);
@@ -19,6 +22,9 @@ router.get('/', authenticate, async (req: AuthRequest, res) => {
 // Mark notification as read
 router.patch('/:id/read', authenticate, async (req: AuthRequest, res) => {
   try {
+    if (!req.userId) {
+      return res.status(401).json({ error: 'User not authenticated' });
+    }
     const notification = await Notification.findOneAndUpdate(
       { _id: req.params.id, userId: req.userId },
       { read: true },
