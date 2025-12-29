@@ -80,6 +80,11 @@ const SwipeCard: React.FC<SwipeCardProps> = memo(({ item, isTop, indexFromTop, o
     }
   }, [controls, onSwipe]);
 
+  const handleShowInfoClick = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    onShowInfo(item);
+  }, [item, onShowInfo]);
+
   return (
     <motion.div
       style={{ 
@@ -141,7 +146,7 @@ const SwipeCard: React.FC<SwipeCardProps> = memo(({ item, isTop, indexFromTop, o
         </div>
         
         <button 
-           onClick={handleShowInfo}
+           onClick={handleShowInfoClick}
            className="flex items-center justify-center gap-2 mt-2 text-sm font-bold text-brand-red hover:text-white hover:bg-brand-red transition-transform w-full p-3 rounded-xl bg-brand-red/5 border border-brand-red/10 active:scale-95 shadow-sm touch-manipulation"
          >
             <Info size={16} />
